@@ -147,13 +147,19 @@ func (u *UdsTokenizer) ApplyChatTemplate(
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
-	// Convert preprocessing.ChatMessage to protobuf ChatMessage
-	chatMessages := make([]*tokenizerpb.ChatMessage, len(renderReq.Conversations))
-	for i, msg := range renderReq.Conversations {
-		chatMessages[i] = &tokenizerpb.ChatMessage{
-			Role:    msg.Role,
-			Content: msg.Content,
+	// Convert the nested conversation structure to the new proto format
+	var conversationTurns []*tokenizerpb.ConversationTurn
+	for _, batch := range renderReq.Conversation {
+		var messages []*tokenizerpb.ChatMessage
+		for _, msg := range batch {
+			messages = append(messages, &tokenizerpb.ChatMessage{
+				Role:    msg.Role,
+				Content: msg.Content,
+			})
 		}
+		conversationTurns = append(conversationTurns, &tokenizerpb.ConversationTurn{
+			Messages: messages,
+		})
 	}
 
 	// Convert ChatTemplateKWArgs
@@ -163,7 +169,7 @@ func (u *UdsTokenizer) ApplyChatTemplate(
 	}
 
 	req := &tokenizerpb.ChatTemplateRequest{
-		Messages:                  chatMessages,
+		ConversationTurns:         conversationTurns,
 		ChatTemplate:              renderReq.ChatTemplate,
 		ReturnAssistantTokensMask: renderReq.ReturnAssistantTokensMask,
 		ContinueFinalMessage:      renderReq.ContinueFinalMessage,
